@@ -36,9 +36,13 @@ class DictGraph(Graph):
 
 def create_random_graph(num_vertices, prob_edge):
 	# create Erdos-Renyi graph --- include each edge with prob. prob_edge
+	# use the numbers 1 to n for the vertices
+	# create vertices
+	for i in range(num_vertices):
+		
+	graph = graph.DictGraph
 	pass
 
 def create_random_regular_graph(num_vertices, degree):
 	# create random graph with specified degree
 	pass
-
