@@ -36,33 +36,3 @@ def sample_coloring(G, k, steps=1000, initial_C=None):
         sample_adjacent_coloring(G, C, k)
 
     return C
-
-
-# class GraphColorer:
-# 	def __init__(self, G):
-#         # graph G, maybe set of colorings C?
-#         self.G = G
-
-# 	def random_color(self, C):
-#         # return random color in C
-#         return choice(list(C))
-
-#     def is_coloring_valid(self, G, v, c, C):
-#         pass
-
-#     def colorVertex(self, vertex, c):
-#         # assign vertex color c
-#         pass
-
-#     def sampleColor(self, G, k, t):
-#         pass
-        # graph G (undirected, unweighted)
-        # k : # of colors
-        # t : # of steps
-
-        # C <- empty coloring
-        # for F in range(t):
-            # v <- random vertex in G
-            # c <- random colors
-            # if you take C and then change it
-            # by assigning vertex v to have color c
