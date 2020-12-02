@@ -1,7 +1,8 @@
 # test.py
 import networkx as nx
-from random import choice
+# from random import choice
 import color
+import matplotlib.pyplot as plt
 
 # networkx
 # G = nx.Graph()
@@ -21,3 +22,8 @@ import color
 G = nx.tutte_graph()
 random_coloring = color.sample_coloring(G, 5)
 print(random_coloring)
+
+list_of_colors = [(random_coloring[x] if x in random_coloring else 0) for x in range(G.number_of_nodes())]
+
+nx.draw(G, node_color=list_of_colors)
+plt.show()

@@ -9,7 +9,7 @@ def check_coloring_valid(G, C, v, c):
     # look at all of v's neighbors
     for neighbor in G[v]:
         # is v already colored with c?
-        if v in C and C[v] == c:
+        if neighbor in C and C[neighbor] == c:
             return False
     return True
 
@@ -26,7 +26,6 @@ def sample_adjacent_coloring(G, C, k):
         # if the new coloring is OK, update it, else do nothing
         if check_coloring_valid(G, C, v, new_color):
             C[v] = new_color
-
 
 # sample a k-coloring
 def sample_coloring(G, k, steps=1000, initial_C=None):
