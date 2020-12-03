@@ -13,7 +13,7 @@ def check_coloring_valid(G, C, v, c):
             return False
     return True
 
-# update a k-coloring to a random neighbor in-place
+# update a k-coloring to a random neighbor in-place - implicit
 def sample_adjacent_coloring(G, C, k):
     v = random_vertex(G)
 
