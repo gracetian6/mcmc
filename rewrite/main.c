@@ -5,10 +5,10 @@
 #include <igraph.h>
 
 #define NUM_VERTICES            8
-#define NUM_COLORS              3
+#define NUM_COLORS              7
 #define COLOR_BITS              3 // should have NUM_COLORS <= 2^COLOR_BITS - 1
 #define NUM_STEPS               1000
-#define EDGE_PROB               1.0/3
+#define DEGREE                  2
 
 #define GET_NTH_COLOR(x,n)      (unsigned int) ((x >> COLOR_BITS*n) & ((1 << COLOR_BITS) - 1))
 #define COLOR_MASK(n)           (uint64_t) ((1 << COLOR_BITS*(n+1)) - (1 << COLOR_BITS*n))
@@ -88,7 +88,7 @@ double calculate_tv_dist(double *distribution, bool valid_colorings[], int num_v
             dist += contribution > 0 ? contribution : -contribution;
         }
     }
-    return dist;
+    return dist/2;
 }
 
 // helper function to swap two arrays of doubles
@@ -108,7 +108,6 @@ uint64_t find_initial_coloring(igraph_t *graph) {
     for (int vertex = 0; vertex < igraph_vector_int_size(&colors); vertex++) {
         int color = VECTOR(colors)[vertex];
         assert(color <= NUM_COLORS);
-        printf("%d\n", color);
         coloring = SET_NTH_COLOR(coloring, vertex, color);
     }
 
@@ -119,8 +118,12 @@ int main() {
     // choose a random undirected graph on NUM_VERTICES vertices, where each edge is included w.p. 1/3
     igraph_t graph;
     igraph_rng_seed(igraph_rng_default(), 42);
-    igraph_erdos_renyi_game(&graph, IGRAPH_ERDOS_RENYI_GNP, NUM_VERTICES, EDGE_PROB,
+    igraph_k_regular_game(&graph, NUM_VERTICES, DEGREE,
                          IGRAPH_UNDIRECTED, IGRAPH_NO_LOOPS);
+
+    igraph_bool_t connected;
+    igraph_is_connected(&graph, &connected, 0);
+    assert(connected);
 
     // initialize two large vectors to contain distributions over colorings
     // at each step t, "distribution" represents distribution at step t, and
