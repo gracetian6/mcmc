@@ -146,7 +146,7 @@ int main() {
     int num_valid_colorings = 1;
 
     // Print parameters
-    printf("NUM_VERTICES %d, k = %d, NUM_STEPS = %d, D = %d\n", NUM_VERTICES, NUM_COLORS, NUM_STEPS, DEGREE);
+    printf("|V|: %d, k = %d, COLOR_BITS = %d, NUM_STEPS = %d, D = %d\n", NUM_VERTICES, NUM_COLORS, COLOR_BITS, NUM_STEPS, DEGREE);
     printf("Finished initialization!\n===========\n\n");
 
     // tracks whether we've stop seeing new colorings (and so valid_colorings accurately
