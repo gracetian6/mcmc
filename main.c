@@ -154,9 +154,18 @@ int main( int argc, char *argv[] )  {
     // tracks how many valid colorings have been seen so far
     int num_valid_colorings = 1;
 
+    // initialize File IO
+    FILE *fp;
+    char fileName[20];
+    sprintf(fileName, "V%dK%dD%d.csv", NUM_VERTICES, NUM_COLORS, DEGREE);
+    printf("Written into %s\n", fileName);
+    fp = fopen(fileName, "w+");
+
     // Print parameters
-    printf("|V|: %d, k = %d, COLOR_BITS = %d, NUM_STEPS = %d, D = %d\n", NUM_VERTICES, NUM_COLORS, COLOR_BITS, NUM_STEPS, DEGREE);
+    fprintf(fp, "|V|: %d D = %d COLOR_BITS = %d\n", NUM_VERTICES, DEGREE, COLOR_BITS);
+    fprintf(fp, "k = %d\n", NUM_COLORS);
     printf("Finished initialization!\n===========\n\n");
+    fprintf(fp, "STEP, Additional Colorings, TV-dist\n");
 
     // tracks whether we've stop seeing new colorings (and so valid_colorings accurately
     // contains all of the colorings it should)
@@ -168,12 +177,12 @@ int main( int argc, char *argv[] )  {
         int new_colorings_found = step(&graph, distribution, new_distribution, valid_colorings);
         if (new_colorings_found) {
             // found additional colorings.
-            printf("STEP %d. Found %d additional colorings.\n", t, new_colorings_found);
+            fprintf(fp, "%d, %d \n", t, new_colorings_found);
             num_valid_colorings += new_colorings_found;
         } else {
             // no additional colorings
             no_additional_colorings = true;
-            printf("STEP %d. TV-dist: %f.\n", t, calculate_tv_dist(distribution, valid_colorings, num_valid_colorings));
+            fprintf(fp, "%d, ,%f\n", t, calculate_tv_dist(distribution, valid_colorings, num_valid_colorings));
         }
         swap_arrays(&distribution, &new_distribution);
     }
@@ -181,5 +190,6 @@ int main( int argc, char *argv[] )  {
 
     igraph_destroy(&graph);
 
+    fclose(fp);
     return 0;
 }

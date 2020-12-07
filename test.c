@@ -24,8 +24,9 @@ int main( int argc, char *argv[] )  {
 
     printf("|V|: %d, k = %d, COLOR_BITS = %d, NUM_STEPS = %d, D = %d\n", NUM_VERTICES, NUM_COLORS, COLOR_BITS, NUM_STEPS, DEGREE);
 
-    FILE *fp;
 
+    // file I/O
+    FILE *fp;
     char fileName[20];
     sprintf(fileName, "V%dK%dD%d.csv", NUM_VERTICES, NUM_COLORS, DEGREE);
 
@@ -35,5 +36,4 @@ int main( int argc, char *argv[] )  {
     fprintf(fp, "This is testing for fprintf, ...\n");
     fputs("This is testing for fputs...\n", fp);
     fclose(fp);
-
 }
