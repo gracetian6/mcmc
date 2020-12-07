@@ -180,6 +180,7 @@ int main( int argc, char *argv[] )  {
     // contains all of the colorings it should)
     bool no_additional_colorings = false;
 
+    double tv_dist = 1;
     // main loop to "advance distribution by one step"
     for (int t = 0; t < NUM_STEPS; t++) {
         // did this step actually discover new valid colorings?
@@ -191,7 +192,13 @@ int main( int argc, char *argv[] )  {
         } else {
             // no additional colorings
             no_additional_colorings = true;
-            fprintf(fp, "%d, ,%f\n", t, calculate_tv_dist(distribution, valid_colorings, num_valid_colorings));
+            tv_dist = calculate_tv_dist(distribution, valid_colorings, num_valid_colorings);
+            fprintf(fp, "%d, ,%f\n", t, tv_dist);
+
+            // no more steps needed if tv dist is 0
+            if (fabs (tv_dist) < 0.000001){
+              break;
+            }
         }
         swap_arrays(&distribution, &new_distribution);
     }
