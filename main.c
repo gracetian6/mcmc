@@ -3,12 +3,10 @@
 #include <string.h>
 #include <math.h>
 #include <igraph.h>
+#include <stdlib.h>
 
-#define NUM_VERTICES            7
-#define NUM_COLORS              4
-#define COLOR_BITS              (int) ceil(log((double) NUM_COLORS + 1)/log(2)) //  NUM_COLORS <= 2^COLOR_BITS - 1
 #define NUM_STEPS               1000
-#define DEGREE                  2
+int NUM_VERTICES, NUM_COLORS, DEGREE, COLOR_BITS;
 
 #define GET_NTH_COLOR(x,n)      (unsigned int) ((x >> COLOR_BITS*n) & ((1 << COLOR_BITS) - 1))
 #define COLOR_MASK(n)           (uint64_t) ((1 << COLOR_BITS*(n+1)) - (1 << COLOR_BITS*n))
@@ -114,7 +112,18 @@ uint64_t find_initial_coloring(igraph_t *graph) {
     return coloring;
 }
 
-int main() {
+int main( int argc, char *argv[] )  {
+    // take in 4 arguments: NUM_VERTICES, NUM_COLORS, DEGREE
+    if (argc > 4 || argc <= 1) {
+      printf("Error: Run ./bin/sample_colorings NUM_VERTICES NUM_COLORS DEGREE\n");
+      return 0;
+    }
+
+    NUM_VERTICES = atoi(argv[1]);
+    NUM_COLORS = atoi(argv[2]);
+    DEGREE = atoi(argv[3]);
+    COLOR_BITS = (int) ceil(log((double) NUM_COLORS + 1)/log(2)); //  NUM_COLORS <= 2^COLOR_BITS - 1
+
     // choose a random undirected graph on NUM_VERTICES vertices, where each edge is included w.p. 1/3
     igraph_t graph;
     igraph_rng_seed(igraph_rng_default(), 42);
