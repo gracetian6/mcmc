@@ -132,7 +132,6 @@ int main( int argc, char *argv[] )  {
     NUM_COLORS = atoi(argv[2]);
     DEGREE = atoi(argv[3]);
     COLOR_BITS = (int) ceil(log((double) NUM_COLORS + 1)/log(2)); //  NUM_COLORS <= 2^COLOR_BITS - 1
-    printf("%d %d %d\n", COLOR_BITS, sizeof(double), ARRAY_SIZE);
 
     // choose a random undirected graph on NUM_VERTICES vertices, where each edge is included w.p. 1/3
     igraph_t graph;
@@ -197,7 +196,7 @@ int main( int argc, char *argv[] )  {
         swap_arrays(&distribution, &new_distribution);
     }
     printf("num_colorings: %d", num_valid_colorings);
-    
+
     free(distribution);
     free(new_distribution);
     free(valid_colorings);
