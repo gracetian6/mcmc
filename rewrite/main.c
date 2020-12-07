@@ -4,8 +4,8 @@
 #include <math.h>
 #include <igraph.h>
 
-#define NUM_VERTICES            8
-#define NUM_COLORS              7
+#define NUM_VERTICES            7
+#define NUM_COLORS              4
 #define COLOR_BITS              (int) ceil(log((double) NUM_COLORS + 1)/log(2)) //  NUM_COLORS <= 2^COLOR_BITS - 1
 #define NUM_STEPS               1000
 #define DEGREE                  2
@@ -158,11 +158,13 @@ int main() {
         // did this step actually discover new valid colorings?
         int new_colorings_found = step(&graph, distribution, new_distribution, valid_colorings);
         if (new_colorings_found) {
+            // found additional colorings.
             printf("STEP %d. Found %d additional colorings.\n", t, new_colorings_found);
             num_valid_colorings += new_colorings_found;
         } else {
+            // no additional colorings
             no_additional_colorings = true;
-            printf("STEP %d. No additional colorings. TV-dist: %f.\n", t, calculate_tv_dist(distribution, valid_colorings, num_valid_colorings));
+            printf("STEP %d. TV-dist: %f.\n", t, calculate_tv_dist(distribution, valid_colorings, num_valid_colorings));
         }
         swap_arrays(&distribution, &new_distribution);
     }
