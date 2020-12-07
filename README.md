@@ -9,7 +9,7 @@ for compilation on a Mac machine where `igraph` has been installed via `homebrew
 ## Usage
 
 The executable `sample_colorings` will be contained in the `bin` directory after compilation. Navigate there,
-and run `./bin/sample_colorings`.
+and run `./bin/sample_colorings NUM_VERTICES NUM_COLORS DEGREE`.
 
 ## Credits
 
