@@ -1,12 +1,12 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <string.h>
-
+#include <math.h>
 #include <igraph.h>
 
 #define NUM_VERTICES            8
 #define NUM_COLORS              7
-#define COLOR_BITS              3 // should have NUM_COLORS <= 2^COLOR_BITS - 1
+#define COLOR_BITS              (int) ceil(log((double) NUM_COLORS + 1)/log(2)) //  NUM_COLORS <= 2^COLOR_BITS - 1
 #define NUM_STEPS               1000
 #define DEGREE                  2
 
@@ -64,11 +64,11 @@ int step(igraph_t *graph, double *distribution, double *new_distribution, bool v
                 if (check_valid_coloring(graph, x, v, c)) {
                     // this choice of color is a valid coloring of the graph
                     new_distribution[SET_NTH_COLOR(x,v,c)] += (1.0/(NUM_COLORS * NUM_VERTICES)) * distribution[x];
-                        
+
                     if (!valid_colorings[SET_NTH_COLOR(x,v,c)]) {
                         valid_colorings[SET_NTH_COLOR(x,v,c)] = true;
                         num_new_colorings++;
-                    } 
+                    }
                 } else self_loops++;
             }
             // add properly weighted self-loop
@@ -141,10 +141,12 @@ int main() {
     uint64_t initial_coloring = find_initial_coloring(&graph);
     distribution[initial_coloring] = 1.0;
     valid_colorings[initial_coloring] = true;
-    
+
     // tracks how many valid colorings have been seen so far
     int num_valid_colorings = 1;
 
+    // Print parameters
+    printf("NUM_VERTICES %d, k = %d, NUM_STEPS = %d, D = %d\n", NUM_VERTICES, NUM_COLORS, NUM_STEPS, DEGREE);
     printf("Finished initialization!\n===========\n\n");
 
     // tracks whether we've stop seeing new colorings (and so valid_colorings accurately
