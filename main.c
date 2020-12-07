@@ -13,7 +13,7 @@ int NUM_VERTICES, NUM_COLORS, DEGREE, COLOR_BITS;
 #define SET_NTH_COLOR(x,n,c)    (x & ~COLOR_MASK(n)) | (c << COLOR_BITS*n)
 #define ARRAY_SIZE              1 << (NUM_VERTICES*COLOR_BITS)
 
-void clear_dist(double distribution[]) {
+void clear_dist(double *distribution) {
     for (int i = 0; i < ARRAY_SIZE; i++) distribution[i] = 0.0;
 }
 
@@ -24,16 +24,23 @@ bool check_valid_coloring(igraph_t *graph, uint64_t coloring, int vertex, int co
     igraph_vector_init(&neighbors, NUM_VERTICES);
     igraph_neighbors(graph, &neighbors, vertex, IGRAPH_ALL);
 
+    bool valid = true;
+
     for (int j = 0; j < igraph_vector_size(&neighbors); j++) {
         int neighbor = VECTOR(neighbors)[j];
-        if (GET_NTH_COLOR(coloring, neighbor) == color) return false;
+        if (GET_NTH_COLOR(coloring, neighbor) == color) {
+            valid = false;
+            break;
+        }
     }
 
-    return true;
+    igraph_vector_destroy(&neighbors);
+
+    return valid;
 }
 
 // helper function to print a distribution over colorings
-void print_dist(double distribution[], bool valid_colorings[]) {
+void print_dist(double *distribution, bool *valid_colorings) {
     for (uint64_t x = 0; x < ARRAY_SIZE; x++) {
         if (valid_colorings[x]) {
             for (int v = 0; v < NUM_VERTICES; v++) {
@@ -46,7 +53,7 @@ void print_dist(double distribution[], bool valid_colorings[]) {
 
 // take one "step" on the random walk, or, more precisely, multiply "distribution" by the
 // random-walk matrix of the Markov chain and place the result in "new_distribution"
-int step(igraph_t *graph, double *distribution, double *new_distribution, bool valid_colorings[]) {
+int step(igraph_t *graph, double *distribution, double *new_distribution, bool *valid_colorings) {
     clear_dist(new_distribution);
 
     int num_new_colorings = 0;
@@ -78,7 +85,7 @@ int step(igraph_t *graph, double *distribution, double *new_distribution, bool v
 }
 
 // calculate the total variation distance of a distribution from uniform
-double calculate_tv_dist(double *distribution, bool valid_colorings[], int num_valid_colorings) {
+double calculate_tv_dist(double *distribution, bool *valid_colorings, int num_valid_colorings) {
     double dist = 0;
     for (uint64_t x = 0; x < ARRAY_SIZE; x++) {
         if (valid_colorings[x]) {
@@ -109,6 +116,8 @@ uint64_t find_initial_coloring(igraph_t *graph) {
         coloring = SET_NTH_COLOR(coloring, vertex, color);
     }
 
+    igraph_vector_int_destroy(&colors);
+
     return coloring;
 }
 
@@ -123,6 +132,7 @@ int main( int argc, char *argv[] )  {
     NUM_COLORS = atoi(argv[2]);
     DEGREE = atoi(argv[3]);
     COLOR_BITS = (int) ceil(log((double) NUM_COLORS + 1)/log(2)); //  NUM_COLORS <= 2^COLOR_BITS - 1
+    printf("%d %d %d\n", COLOR_BITS, sizeof(double), ARRAY_SIZE);
 
     // choose a random undirected graph on NUM_VERTICES vertices, where each edge is included w.p. 1/3
     igraph_t graph;
@@ -187,6 +197,10 @@ int main( int argc, char *argv[] )  {
         swap_arrays(&distribution, &new_distribution);
     }
     printf("num_colorings: %d", num_valid_colorings);
+    
+    free(distribution);
+    free(new_distribution);
+    free(valid_colorings);
 
     igraph_destroy(&graph);
 
