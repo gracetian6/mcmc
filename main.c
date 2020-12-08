@@ -167,7 +167,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    color_bits = (int) ceil(log((double) num_colors + 1)/log(2)); //  num_colors <= 2^color_bits - 1
+    color_bits = (int) ceil(log((double) NUM_COLORS + 1)/log(2)); //  num_colors <= 2^color_bits - 1
     array_size = 1 << (color_bits * num_vertices);
 
     // choose a random undirected graph on num_vertices vertices, where each edge is included w.p. 1/3
@@ -219,6 +219,7 @@ int main(int argc, char *argv[]) {
     // contains all of the colorings it should)
     bool no_additional_colorings = false;
 
+    double tv_dist = 1;
     // main loop to "advance distribution by one step"
     for (int t = 0; t < num_steps || num_steps == -1; t++) {
         printf("Running step %d.\n", t);
@@ -231,6 +232,7 @@ int main(int argc, char *argv[]) {
         } else {
             // no additional colorings
             no_additional_colorings = true;
+
             double tv_dist = calculate_tv_dist(distribution, valid_colorings, num_valid_colorings);
             fprintf(fp, "%d, ,%f\n", t, tv_dist);
             if (stopping_threshold != NAN && tv_dist <= stopping_threshold) {
@@ -240,7 +242,7 @@ int main(int argc, char *argv[]) {
         swap_arrays(&distribution, &new_distribution);
     }
     printf("num_colorings: %d", num_valid_colorings);
-    
+
     free(distribution);
     free(new_distribution);
     free(valid_colorings);
