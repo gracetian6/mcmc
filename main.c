@@ -167,7 +167,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    color_bits = (int) ceil(log((double) NUM_COLORS + 1)/log(2)); //  num_colors <= 2^color_bits - 1
+    color_bits = (int) ceil(log((double) num_colors + 1)/log(2)); //  num_colors <= 2^color_bits - 1
     array_size = 1 << (color_bits * num_vertices);
 
     // choose a random undirected graph on num_vertices vertices, where each edge is included w.p. 1/3
