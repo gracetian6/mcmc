@@ -132,8 +132,11 @@ int main(int argc, char *argv[]) {
         {"degree",  required_argument, 0, 'd'},
         {"num_steps",  required_argument, 0, 't'},
         {"stopping_threshold", required_argument, 0, 'e'},
+        {"seed", required_argument, 0, 's'},
         {0, 0, 0, 0}
     };
+
+    int seed = -1;
 
     while (true) {
         getopt_ret = getopt_long(argc, argv, "n:k:k:t:e:", long_options,  &option_index);
@@ -157,22 +160,27 @@ int main(int argc, char *argv[]) {
             case 'e':
                 stopping_threshold = atof(optarg);
                 break;
+            case 's':
+                seed = atoi(optarg);
+                break;
         }
     }
 
     if (num_vertices == -1 || num_colors == -1 || num_colors == -1
             || (num_steps == -1 && stopping_threshold == NAN)) {
-        printf("usage: sample_colorings [--num_vertices 6] [--num_colors 5] [--degree 3] [--num_steps 1000] [--stopping_threshold 0.001]\n");
+        printf("usage: sample_colorings [--num_vertices=6] [--num_colors=5] [--degree=3] [--num_steps=1000] [--stopping_threshold 0.001] [--seed=42]\n");
         printf("must pass: --num_vertices, --num_colors, --degree, and at least one of {--num_steps, --stopping_threshold}\n");
         return -1;
     }
 
-    color_bits = (int) ceil(log((double) num_colors + 1)/log(2)); //  num_colors <= 2^color_bits - 1
+    color_bits = (int) ceil(log((double) num_colors)/log(2)); //  num_colors <= 2^color_bits
     array_size = 1 << (color_bits * num_vertices);
 
     // choose a random undirected graph on num_vertices vertices, where each edge is included w.p. 1/3
     igraph_t graph;
-    igraph_rng_seed(igraph_rng_default(), 42);
+    if (seed != -1) {
+        igraph_rng_seed(igraph_rng_default(), seed);
+    }
     igraph_k_regular_game(&graph, num_vertices, degree,
                          IGRAPH_UNDIRECTED, IGRAPH_NO_LOOPS);
 
@@ -199,7 +207,6 @@ int main(int argc, char *argv[]) {
 
     // tracks how many valid colorings have been seen so far
     int num_valid_colorings = 1;
-    printf("HERE\n");
 
     // initialize File IO
     FILE *fp;
