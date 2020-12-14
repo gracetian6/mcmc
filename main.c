@@ -223,6 +223,10 @@ int main(int argc, char *argv[]) {
     sprintf(fileName, "data/V%dK%dD%d.csv", num_vertices, num_colors, degree);
     printf("Written into %s\n", fileName);
     fp = fopen(fileName, "w+");
+    if (fp == NULL) {
+      fprintf(stderr, "Couldn't open %s\n", fileName);
+      exit(1);
+    }
 
     // Print parameters
     fprintf(fp, "|V|: %d D = %d array_size = %d\n", num_vertices, degree, array_size);

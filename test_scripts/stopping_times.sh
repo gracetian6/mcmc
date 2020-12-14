@@ -7,7 +7,7 @@ do
 	for ((n=4; n<=8; n+=2))
 	do
 		echo "Running test with $k colors and $n vertices and degree 3\n"
-		./bin/sample_colorings --num_vertices=$n --num_colors=$k --degree=3 --stopping_threshold=$EPSILON
+		../bin/sample_colorings --num_vertices=$n --num_colors=$k --degree=3 --stopping_threshold=$EPSILON
 	done
 done
 
