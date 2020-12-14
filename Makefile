@@ -1,7 +1,7 @@
 COMPILER=gcc
 IGRAPH_INCLUDE_DIR=/usr/local/include/igraph
 IGRAPH_LIB_DIR=/usr/local/lib
-CFLAGS=-I$(IGRAPH_INCLUDE_DIR) -L$(IGRAPH_LIB_DIR) -ligraph
+CFLAGS=-I$(IGRAPH_INCLUDE_DIR) -L$(IGRAPH_LIB_DIR) -ligraph -O3
 
 OBJECTS=bin/main.o
 

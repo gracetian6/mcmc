@@ -7,13 +7,23 @@
 #include <getopt.h>
 
 int num_vertices = -1, num_colors = -1, degree = -1;
-int color_bits, array_size;
+int array_size;
 int num_steps = -1;
 double stopping_threshold = NAN;
 
-#define GET_NTH_COLOR(x,n)      (unsigned int) ((x >> color_bits*n) & ((1 << color_bits) - 1))
-#define COLOR_MASK(n)           (uint64_t) ((1 << color_bits*(n+1)) - (1 << color_bits*n))
-#define SET_NTH_COLOR(x,n,c)    (x & ~COLOR_MASK(n)) | (c << color_bits*n)
+uint64_t shift(int n) {
+    int result = 1;
+    for (int i = 0; i < n; i++)
+        result *= num_colors;
+    return result;
+}
+
+#define GET_NTH_COLOR(x,n)          (x / shift(n)) % num_colors
+#define SET_NTH_COLOR(x,n,c)        ((x / shift(n+1)) * shift(n+1)) + (c * shift(n)) + (x % shift(n))
+
+// #define GET_NTH_COLOR(x,n)      (unsigned int) ((x >> color_bits*n) & ((1 << color_bits) - 1))
+// #define COLOR_MASK(n)           (uint64_t) ((1 << color_bits*(n+1)) - (1 << color_bits*n))
+// #define SET_NTH_COLOR(x,n,c)    (x & ~COLOR_MASK(n)) | (c << color_bits*n)
 
 void clear_dist(double *distribution) {
     for (int i = 0; i < array_size; i++) distribution[i] = 0.0;
@@ -173,8 +183,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    color_bits = (int) ceil(log((double) num_colors)/log(2)); //  num_colors <= 2^color_bits
-    array_size = 1 << (color_bits * num_vertices);
+    array_size = shift(num_vertices);
 
     // choose a random undirected graph on num_vertices vertices, where each edge is included w.p. 1/3
     igraph_t graph;
@@ -216,7 +225,7 @@ int main(int argc, char *argv[]) {
     fp = fopen(fileName, "w+");
 
     // Print parameters
-    fprintf(fp, "|V|: %d D = %d color_bits = %d array_size = %d\n", num_vertices, degree, color_bits, array_size);
+    fprintf(fp, "|V|: %d D = %d array_size = %d\n", num_vertices, degree, array_size);
     fprintf(fp, "k = %d\n", num_colors);
 
     printf("Finished initialization!\n===========\n\n");
