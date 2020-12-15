@@ -8,6 +8,7 @@
 
 #include <vector>
 #include <unordered_map>
+#include <stack>
 
 int num_vertices = -1, num_colors = -1, degree = -1;
 int array_size;
@@ -18,6 +19,9 @@ std::vector<double> vector;
 std::vector<double> new_vector;
 
 std::vector<uint64_t> bitfields;
+
+std::vector<std::vector<int> > neighbors;
+
 // std::unordered_map<uint64_t, int> indices;
 int *indices;
 
@@ -25,7 +29,7 @@ int num_colorings = 1;
 
 int *adjacent_colorings = NULL;
 
-bool memoize = false;
+bool memoize = true;
 bool second_vector = true;
 
 igraph_t graph;
@@ -70,28 +74,48 @@ bool check_valid_coloring(uint64_t coloring, int vertex, int color) {
     return valid;
 }
 
-// could be made more efficient with DFS, but isn't a bottleneck
-int preliminary_step() {
-    int num_new_colorings = 0;
+// DFS to find all colorings
+void find_colorings(uint64_t initial_coloring) {
+    std::stack<int> colorings;
+    colorings.push(0);
 
-    for (int i = 0; i < num_colorings; i++) {
+    indices[initial_coloring] = 0;
+    bitfields.push_back(initial_coloring);
+
+    while (!colorings.empty()) {
+        int i = colorings.top();
+        colorings.pop();
         uint64_t x = bitfields[i];
 
         for (int v = 0; v < num_vertices; v++) {
             for (int c = 0; c < num_colors; c++) {
+                if (c == GET_NTH_COLOR(x, v)) continue;
                 if (check_valid_coloring(x, v, c)) {
-                    uint64_t y = SET_NTH_COLOR(x,v,c);
+                    uint64_t y = SET_NTH_COLOR(x, v, c);
 
                     if (indices[y] == -1) {
-                        indices[y] = num_colorings + (num_new_colorings++);
+                        indices[y] = num_colorings++;
                         bitfields.push_back(y);
+                        colorings.push(indices[y]);
                     }
                 }
             }
         }
     }
 
-    return num_new_colorings;
+    for (int i = 0; i < num_colorings; i++) {
+        std::vector<int> neighbors_of_i;
+        uint64_t x = bitfields[i];
+
+        for (int v = 0; v < num_vertices; v++) {
+            for (int c = 0; c < num_colors; c++) {
+                if (c == GET_NTH_COLOR(x, v)) continue;
+                if (check_valid_coloring(x, v, c)) neighbors_of_i.push_back(indices[SET_NTH_COLOR(x, v, c)]);
+            }
+        }
+
+        neighbors.push_back(neighbors_of_i);
+    }
 }
 
 // take one "step" on the random walk, or, more precisely, multiply "vector" by the
@@ -103,20 +127,27 @@ void matrix_vector_mult() {
     // iterate through all possible colorings
     for (int i = 0; i < num_colorings; i++) {
         uint64_t x = bitfields[i];
+        
+        int self_loops = 0;
 
-        for (int v = 0; v < num_vertices; v++) {
-            int self_loops = 0;
-
-            for (int c = 0; c < num_colors; c++) {
-                if (check_valid_coloring(x, v, c)) {
-                    uint64_t y = SET_NTH_COLOR(x,v,c);
-                    new_vector[indices[y]] += (1.0/(num_colors * num_vertices)) * vector[i];
-                } else self_loops++;
+        if (!memoize) {
+            for (int v = 0; v < num_vertices; v++) {
+                for (int c = 0; c < num_colors; c++) {
+                    if (check_valid_coloring(x, v, c)) {
+                        uint64_t y = SET_NTH_COLOR(x,v,c);
+                        new_vector[indices[y]] += (1.0/(num_colors * num_vertices)) * vector[i];
+                    } else self_loops++;
+                }
             }
-
-            // add properly weighted self-loop
-            new_vector[i] += (((double) self_loops) / (num_colors * num_vertices)) * vector[i];
+        } else {
+            for (int j : neighbors[i]) {
+                new_vector[j] += (1.0/(num_colors * num_vertices)) * vector[i];
+            }
+            self_loops = num_colors * num_vertices - neighbors[i].size();
         }
+
+        // add properly weighted self-loop
+        new_vector[i] += (((double) self_loops) / (num_colors * num_vertices)) * vector[i];
     }
 }
 
@@ -315,23 +346,12 @@ int main(int argc, char *argv[]) {
     igraph_is_connected(&graph, &connected, IGRAPH_STRONG);
     assert(connected);
 
-    // pick an initial coloring and initialize the vector to put all probability on this coloring
-    uint64_t initial_coloring = find_initial_coloring();
-
     array_size = shift(num_vertices);
     indices = (int*) malloc(sizeof(int) * array_size);
     for (int i = 0; i < array_size; i++) indices[i] = -1;
 
-    bitfields.push_back(initial_coloring);
-    indices[initial_coloring] = 0;
-
-    int additional_colorings;
-    do {
-        additional_colorings = preliminary_step();
-        printf("Found %d additional colorings.\n", additional_colorings);
-        num_colorings += additional_colorings;
-    } while(additional_colorings);
-    printf("num_colorings: %d", num_colorings);
+    find_colorings(find_initial_coloring());
+    printf("num_colorings: %d\n", num_colorings);
 
     printf("Finished initialization!\n===========\n\n");
 
