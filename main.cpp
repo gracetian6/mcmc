@@ -14,8 +14,8 @@ int array_size;
 int num_steps = -1;
 double stopping_threshold = NAN;
 
-std::vector<double> distribution;
-std::vector<double> new_distribution;
+std::vector<double> vector;
+std::vector<double> new_vector;
 
 std::vector<uint64_t> bitfields;
 // std::unordered_map<uint64_t, int> indices;
@@ -26,6 +26,7 @@ int num_colorings = 1;
 int *adjacent_colorings = NULL;
 
 bool memoize = false;
+bool second_vector = true;
 
 igraph_t graph;
 
@@ -43,8 +44,8 @@ uint64_t shift(int n) {
 // #define COLOR_MASK(n)           (uint64_t) ((1 << color_bits*(n+1)) - (1 << color_bits*n))
 // #define SET_NTH_COLOR(x,n,c)    (x & ~COLOR_MASK(n)) | (c << color_bits*n)
 
-void clear_dist() {
-    for (int i = 0; i < num_colorings; i++) new_distribution[i] = 0.0;
+void clear_new_vector() {
+    for (int i = 0; i < num_colorings; i++) new_vector[i] = 0.0;
 }
 
 // check that updating "coloring" by setting "vertex"'s color to "color"
@@ -69,24 +70,35 @@ bool check_valid_coloring(uint64_t coloring, int vertex, int color) {
     return valid;
 }
 
-// helper function to print a distribution over colorings
-// void print_dist() {
-//     for (uint64_t x = 0; x < array_size; x++) {
-//         if (valid_colorings[x]) {
-//             for (int v = 0; v < num_vertices; v++) {
-//                 printf("%d ", GET_NTH_COLOR(x,v));
-//             }
-//             printf(":   %f\n", distribution[x]);
-//         }
-//     }
-// }
-
-// take one "step" on the random walk, or, more precisely, multiply "distribution" by the
-// random-walk matrix of the Markov chain and place the result in "new_distribution"
-int step() {
-    clear_dist();
-
+// could be made more efficient with DFS, but isn't a bottleneck
+int preliminary_step() {
     int num_new_colorings = 0;
+
+    for (int i = 0; i < num_colorings; i++) {
+        uint64_t x = bitfields[i];
+
+        for (int v = 0; v < num_vertices; v++) {
+            for (int c = 0; c < num_colors; c++) {
+                if (check_valid_coloring(x, v, c)) {
+                    uint64_t y = SET_NTH_COLOR(x,v,c);
+
+                    if (indices[y] == -1) {
+                        indices[y] = num_colorings + (num_new_colorings++);
+                        bitfields.push_back(y);
+                    }
+                }
+            }
+        }
+    }
+
+    return num_new_colorings;
+}
+
+// take one "step" on the random walk, or, more precisely, multiply "vector" by the
+// random-walk matrix of the Markov chain and place the result in "new_vector"
+void matrix_vector_mult() {
+    // clear the "new_vector"
+    clear_new_vector();
 
     // iterate through all possible colorings
     for (int i = 0; i < num_colorings; i++) {
@@ -97,35 +109,23 @@ int step() {
 
             for (int c = 0; c < num_colors; c++) {
                 if (check_valid_coloring(x, v, c)) {
-                    // this choice of color is a valid coloring of the graph
                     uint64_t y = SET_NTH_COLOR(x,v,c);
-
-                    if (indices[y] == -1) {
-                        indices[y] = num_colorings + (num_new_colorings++);
-                        bitfields.push_back(y);
-                        distribution.push_back(0);
-                        new_distribution.push_back(0);
-                    }
-
-                    new_distribution[indices[y]] += (1.0/(num_colors * num_vertices)) * distribution[i];
-
+                    new_vector[indices[y]] += (1.0/(num_colors * num_vertices)) * vector[i];
                 } else self_loops++;
             }
-            // add properly weighted self-loop
 
-            new_distribution[i] += (((double) self_loops) / (num_colors * num_vertices)) * distribution[i];
+            // add properly weighted self-loop
+            new_vector[i] += (((double) self_loops) / (num_colors * num_vertices)) * vector[i];
         }
     }
-
-    return num_new_colorings;
 }
 
-// calculate the total variation distance of a distribution from uniform
+// calculate the total variation distance of a vector from uniform
 double calculate_tv_dist() {
     double dist = 0;
 
     for (int i = 0; i < num_colorings; i++) {
-        double contribution = distribution[i] - 1.0/num_colorings;
+        double contribution = vector[i] - 1.0/num_colorings;
         dist += contribution > 0 ? contribution : -contribution;
     }
 
@@ -149,6 +149,106 @@ uint64_t find_initial_coloring() {
 
     return coloring;
 }
+
+void print_parameters(FILE *fp) {
+    // Print parameters
+    fprintf(fp, "|V|: %d D = %d array_size = %d\n", num_vertices, degree, array_size);
+    fprintf(fp, "k = %d\n", num_colors);
+}
+
+void tv_dist_iterate() {
+    vector.clear();
+    new_vector.clear();
+
+    vector.push_back(1.0);
+    for (int i = 1; i < num_colorings; i++) vector.push_back(0.0);
+    for (int i = 0; i < num_colorings; i++) new_vector.push_back(0.0);
+
+    // initialize File IO
+    FILE *fp;
+    char fileName[40];
+    sprintf(fileName, "data/TV-V%dK%dD%d.csv", num_vertices, num_colors, degree);
+    printf("Written into %s\n", fileName);
+    fp = fopen(fileName, "w+");
+    if (fp == NULL) {
+      fprintf(stderr, "Couldn't open %s\n", fileName);
+      exit(1);
+    }
+
+    print_parameters(fp);
+    fprintf(fp, "STEP, TV-dist\n");
+
+    // main loop to "advance vector by one step"
+    for (int t = 0; t < num_steps || num_steps == -1; t++) {
+        printf("Running step %d.\n", t);
+        
+        matrix_vector_mult();
+        vector.swap(new_vector);
+
+        double tv_dist = calculate_tv_dist();
+        fprintf(fp, "%d, %f\n", t, tv_dist);
+        printf("%f\n", tv_dist);
+
+        if (stopping_threshold != NAN && tv_dist <= stopping_threshold) {
+            break;
+        }
+    }
+    fclose(fp);
+}
+
+void nu_2_iterate() {
+    vector.clear();
+    new_vector.clear();
+    
+    for (int i = 0; i < num_colorings; i++) vector.push_back(-1.0 + (rand() % 2) * 2); // fill with random hypercube
+    for (int i = 0; i < num_colorings; i++) new_vector.push_back(0.0);
+
+    // initialize File IO
+    FILE *fp;
+    char fileName[40];
+    sprintf(fileName, "data/NU2-V%dK%dD%d.csv", num_vertices, num_colors, degree);
+    printf("Written into %s\n", fileName);
+    fp = fopen(fileName, "w+");
+    if (fp == NULL) {
+      fprintf(stderr, "Couldn't open %s\n", fileName);
+      exit(1);
+    }
+
+    // Print parameters
+    print_parameters(fp);
+
+    fprintf(fp, "STEP, NU2-est\n");
+
+    // main loop to "advance vector by one step"
+    for (int t = 0; t < num_steps || num_steps == -1; t++) {
+        printf("Running step %d.\n", t);
+        
+        matrix_vector_mult();
+        vector.swap(new_vector);
+
+        // subtract out stationary distribution for stability purposes
+        double product = 0;
+        for (int i = 0; i < num_colorings; i++) product += vector[i] * 1.0/num_colorings;
+        for (int i = 0; i < num_colorings; i++) vector[i] -= product * 1.0/num_colorings;
+
+        // calculate norm of vector
+        double l2_norm = 0;
+        for (int i = 0; i < num_colorings; i++) l2_norm += vector[i]*vector[i];
+        l2_norm = sqrt(l2_norm);
+
+        fprintf(fp, "%d, %f\n", t, 1 - l2_norm);
+        printf("%d, %f\n", t, 1 - l2_norm);
+
+        // renormalize
+        for (int i = 0; i < num_colorings; i++) vector[i] /= l2_norm;
+
+        // if (stopping_threshold != NAN && tv_dist <= stopping_threshold) {
+        //     break;
+        // }
+    }
+    fclose(fp);
+}
+
 
 int main(int argc, char *argv[]) {
     // https://stackoverflow.com/questions/1052746/getopt-does-not-parse-optional-arguments-to-parameters/32575314
@@ -215,7 +315,7 @@ int main(int argc, char *argv[]) {
     igraph_is_connected(&graph, &connected, IGRAPH_STRONG);
     assert(connected);
 
-    // pick an initial coloring and initialize the distribution to put all probability on this coloring
+    // pick an initial coloring and initialize the vector to put all probability on this coloring
     uint64_t initial_coloring = find_initial_coloring();
 
     array_size = shift(num_vertices);
@@ -224,58 +324,21 @@ int main(int argc, char *argv[]) {
 
     bitfields.push_back(initial_coloring);
     indices[initial_coloring] = 0;
-    distribution.push_back(1.0);
-    new_distribution.push_back(0.0);
 
-    // initialize File IO
-    FILE *fp;
-    char fileName[40];
-    sprintf(fileName, "data/V%dK%dD%d.csv", num_vertices, num_colors, degree);
-    printf("Written into %s\n", fileName);
-    fp = fopen(fileName, "w+");
-    if (fp == NULL) {
-      fprintf(stderr, "Couldn't open %s\n", fileName);
-      exit(1);
-    }
-
-    // Print parameters
-    fprintf(fp, "|V|: %d D = %d array_size = %d\n", num_vertices, degree, array_size);
-    fprintf(fp, "k = %d\n", num_colors);
+    int additional_colorings;
+    do {
+        additional_colorings = preliminary_step();
+        printf("Found %d additional colorings.\n", additional_colorings);
+        num_colorings += additional_colorings;
+    } while(additional_colorings);
+    printf("num_colorings: %d", num_colorings);
 
     printf("Finished initialization!\n===========\n\n");
-    fprintf(fp, "STEP, Additional Colorings, TV-dist\n");
 
-    // tracks whether we've stop seeing new colorings (and so valid_colorings accurately
-    // contains all of the colorings it should)
-    bool no_additional_colorings = false;
-
-    double tv_dist = 1;
-    // main loop to "advance distribution by one step"
-    for (int t = 0; t < num_steps || num_steps == -1; t++) {
-        printf("Running step %d.\n", t);
-        // did this step actually discover new valid colorings?
-        int new_colorings_found = step();
-
-        if (new_colorings_found) {
-            // found additional colorings.
-            fprintf(fp, "%d, %d \n", t, new_colorings_found);
-            num_colorings += new_colorings_found;
-        } else {
-            // no additional colorings
-            no_additional_colorings = true;
-
-            double tv_dist = calculate_tv_dist();
-            fprintf(fp, "%d, ,%f\n", t, tv_dist);
-            if (stopping_threshold != NAN && tv_dist <= stopping_threshold) {
-                break;
-            }
-        }
-        distribution.swap(new_distribution);
-    }
-    printf("num_colorings: %d", num_colorings);
+    tv_dist_iterate();
+    nu_2_iterate();
 
     igraph_destroy(&graph);
 
-    fclose(fp);
     return 0;
 }
