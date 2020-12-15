@@ -6,10 +6,28 @@
 #include <stdlib.h>
 #include <getopt.h>
 
+#include <vector>
+#include <unordered_map>
+
 int num_vertices = -1, num_colors = -1, degree = -1;
 int array_size;
 int num_steps = -1;
 double stopping_threshold = NAN;
+
+std::vector<double> distribution;
+std::vector<double> new_distribution;
+
+std::vector<uint64_t> bitfields;
+// std::unordered_map<uint64_t, int> indices;
+int *indices;
+
+int num_colorings = 1;
+
+int *adjacent_colorings = NULL;
+
+bool memoize = false;
+
+igraph_t graph;
 
 uint64_t shift(int n) {
     int result = 1;
@@ -25,16 +43,16 @@ uint64_t shift(int n) {
 // #define COLOR_MASK(n)           (uint64_t) ((1 << color_bits*(n+1)) - (1 << color_bits*n))
 // #define SET_NTH_COLOR(x,n,c)    (x & ~COLOR_MASK(n)) | (c << color_bits*n)
 
-void clear_dist(double *distribution) {
-    for (int i = 0; i < array_size; i++) distribution[i] = 0.0;
+void clear_dist() {
+    for (int i = 0; i < num_colorings; i++) new_distribution[i] = 0.0;
 }
 
 // check that updating "coloring" by setting "vertex"'s color to "color"
 // would remain a valid coloring in "graph"
-bool check_valid_coloring(igraph_t *graph, uint64_t coloring, int vertex, int color) {
+bool check_valid_coloring(uint64_t coloring, int vertex, int color) {
     igraph_vector_t neighbors;
     igraph_vector_init(&neighbors, num_vertices);
-    igraph_neighbors(graph, &neighbors, vertex, IGRAPH_ALL);
+    igraph_neighbors(&graph, &neighbors, vertex, IGRAPH_ALL);
 
     bool valid = true;
 
@@ -52,44 +70,50 @@ bool check_valid_coloring(igraph_t *graph, uint64_t coloring, int vertex, int co
 }
 
 // helper function to print a distribution over colorings
-void print_dist(double *distribution, bool *valid_colorings) {
-    for (uint64_t x = 0; x < array_size; x++) {
-        if (valid_colorings[x]) {
-            for (int v = 0; v < num_vertices; v++) {
-                printf("%d ", GET_NTH_COLOR(x,v));
-            }
-            printf(":   %f\n", distribution[x]);
-        }
-    }
-}
+// void print_dist() {
+//     for (uint64_t x = 0; x < array_size; x++) {
+//         if (valid_colorings[x]) {
+//             for (int v = 0; v < num_vertices; v++) {
+//                 printf("%d ", GET_NTH_COLOR(x,v));
+//             }
+//             printf(":   %f\n", distribution[x]);
+//         }
+//     }
+// }
 
 // take one "step" on the random walk, or, more precisely, multiply "distribution" by the
 // random-walk matrix of the Markov chain and place the result in "new_distribution"
-int step(igraph_t *graph, double *distribution, double *new_distribution, bool *valid_colorings) {
-    clear_dist(new_distribution);
+int step() {
+    clear_dist();
 
     int num_new_colorings = 0;
 
     // iterate through all possible colorings
-    for (uint64_t x = 0; x < array_size; x++) {
-        if (!valid_colorings[x]) continue;
+    for (int i = 0; i < num_colorings; i++) {
+        uint64_t x = bitfields[i];
 
         for (int v = 0; v < num_vertices; v++) {
             int self_loops = 0;
 
             for (int c = 0; c < num_colors; c++) {
-                if (check_valid_coloring(graph, x, v, c)) {
+                if (check_valid_coloring(x, v, c)) {
                     // this choice of color is a valid coloring of the graph
-                    new_distribution[SET_NTH_COLOR(x,v,c)] += (1.0/(num_colors * num_vertices)) * distribution[x];
+                    uint64_t y = SET_NTH_COLOR(x,v,c);
 
-                    if (!valid_colorings[SET_NTH_COLOR(x,v,c)]) {
-                        valid_colorings[SET_NTH_COLOR(x,v,c)] = true;
-                        num_new_colorings++;
+                    if (indices[y] == -1) {
+                        indices[y] = num_colorings + (num_new_colorings++);
+                        bitfields.push_back(y);
+                        distribution.push_back(0);
+                        new_distribution.push_back(0);
                     }
+
+                    new_distribution[indices[y]] += (1.0/(num_colors * num_vertices)) * distribution[i];
+
                 } else self_loops++;
             }
             // add properly weighted self-loop
-            new_distribution[x] += (((double) self_loops) / (num_colors * num_vertices)) * distribution[x];
+
+            new_distribution[i] += (((double) self_loops) / (num_colors * num_vertices)) * distribution[i];
         }
     }
 
@@ -97,29 +121,22 @@ int step(igraph_t *graph, double *distribution, double *new_distribution, bool *
 }
 
 // calculate the total variation distance of a distribution from uniform
-double calculate_tv_dist(double *distribution, bool *valid_colorings, int num_valid_colorings) {
+double calculate_tv_dist() {
     double dist = 0;
-    for (uint64_t x = 0; x < array_size; x++) {
-        if (valid_colorings[x]) {
-            double contribution = distribution[x] - 1.0/num_valid_colorings;
-            dist += contribution > 0 ? contribution : -contribution;
-        }
+
+    for (int i = 0; i < num_colorings; i++) {
+        double contribution = distribution[i] - 1.0/num_colorings;
+        dist += contribution > 0 ? contribution : -contribution;
     }
+
     return dist/2;
 }
 
-// helper function to swap two arrays of doubles
-void swap_arrays(double **a, double **b) {
-    double *temp = *a;
-    *a = *b;
-    *b = temp;
-}
-
 // find a valid coloring for G and encode it
-uint64_t find_initial_coloring(igraph_t *graph) {
+uint64_t find_initial_coloring() {
     igraph_vector_int_t colors;
     igraph_vector_int_init(&colors, 0);
-    igraph_vertex_coloring_greedy(graph, &colors, IGRAPH_COLORING_GREEDY_COLORED_NEIGHBORS);
+    igraph_vertex_coloring_greedy(&graph, &colors, IGRAPH_COLORING_GREEDY_COLORED_NEIGHBORS);
     uint64_t coloring = 0;
 
     for (int vertex = 0; vertex < igraph_vector_int_size(&colors); vertex++) {
@@ -143,6 +160,7 @@ int main(int argc, char *argv[]) {
         {"num_steps",  required_argument, 0, 't'},
         {"stopping_threshold", required_argument, 0, 'e'},
         {"seed", required_argument, 0, 's'},
+        {"memoize", optional_argument, 0, 'm'},
         {0, 0, 0, 0}
     };
 
@@ -173,6 +191,9 @@ int main(int argc, char *argv[]) {
             case 's':
                 seed = atoi(optarg);
                 break;
+            case 'm':
+                memoize = true;
+                break;
         }
     }
 
@@ -183,10 +204,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    array_size = shift(num_vertices);
-
     // choose a random undirected graph on num_vertices vertices, where each edge is included w.p. 1/3
-    igraph_t graph;
     if (seed != -1) {
         igraph_rng_seed(igraph_rng_default(), seed);
     }
@@ -194,28 +212,20 @@ int main(int argc, char *argv[]) {
                          IGRAPH_UNDIRECTED, IGRAPH_NO_LOOPS);
 
     igraph_bool_t connected;
-    igraph_is_connected(&graph, &connected, 0);
+    igraph_is_connected(&graph, &connected, IGRAPH_STRONG);
     assert(connected);
 
-    // initialize two large vectors to contain distributions over colorings
-    // at each step t, "distribution" represents distribution at step t, and
-    // "new_distribution" represents the distribution at step t+1
-    // we switch them after taking the step to reuse the allocations
-    double *distribution = malloc(sizeof(double) * array_size);
-    clear_dist(distribution);
-    double *new_distribution = malloc(sizeof(double) * array_size);
-
-    // initialize a boolean array representing which numbers encode valid colorings, for convenience
-    bool *valid_colorings = malloc(sizeof(bool) * array_size);
-    memset(valid_colorings, 0, sizeof(bool) * array_size);
-
     // pick an initial coloring and initialize the distribution to put all probability on this coloring
-    uint64_t initial_coloring = find_initial_coloring(&graph);
-    distribution[initial_coloring] = 1.0;
-    valid_colorings[initial_coloring] = true;
+    uint64_t initial_coloring = find_initial_coloring();
 
-    // tracks how many valid colorings have been seen so far
-    int num_valid_colorings = 1;
+    array_size = shift(num_vertices);
+    indices = (int*) malloc(sizeof(int) * array_size);
+    for (int i = 0; i < array_size; i++) indices[i] = -1;
+
+    bitfields.push_back(initial_coloring);
+    indices[initial_coloring] = 0;
+    distribution.push_back(1.0);
+    new_distribution.push_back(0.0);
 
     // initialize File IO
     FILE *fp;
@@ -244,28 +254,25 @@ int main(int argc, char *argv[]) {
     for (int t = 0; t < num_steps || num_steps == -1; t++) {
         printf("Running step %d.\n", t);
         // did this step actually discover new valid colorings?
-        int new_colorings_found = step(&graph, distribution, new_distribution, valid_colorings);
+        int new_colorings_found = step();
+
         if (new_colorings_found) {
             // found additional colorings.
             fprintf(fp, "%d, %d \n", t, new_colorings_found);
-            num_valid_colorings += new_colorings_found;
+            num_colorings += new_colorings_found;
         } else {
             // no additional colorings
             no_additional_colorings = true;
 
-            double tv_dist = calculate_tv_dist(distribution, valid_colorings, num_valid_colorings);
+            double tv_dist = calculate_tv_dist();
             fprintf(fp, "%d, ,%f\n", t, tv_dist);
             if (stopping_threshold != NAN && tv_dist <= stopping_threshold) {
                 break;
             }
         }
-        swap_arrays(&distribution, &new_distribution);
+        distribution.swap(new_distribution);
     }
-    printf("num_colorings: %d", num_valid_colorings);
-
-    free(distribution);
-    free(new_distribution);
-    free(valid_colorings);
+    printf("num_colorings: %d", num_colorings);
 
     igraph_destroy(&graph);
 
