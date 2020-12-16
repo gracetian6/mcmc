@@ -1,28 +1,26 @@
 #include "main.h"
 #include "util.h"
 
-void clear_vector(std::vector<double> vector) {
-    for (int i = 0; i < num_colorings; i++) vector[i] = 0.0;
+void clear_vector(std::vector<double> *vector) {
+    for (int i = 0; i < num_colorings; i++) (*vector)[i] = 0.0;
 }
 
 // check that updating "coloring" by setting "vertex"'s color to "color"
 // would remain a valid coloring in "graph"
 bool check_valid_coloring(igraph_vector_t *neighbors_vec, uint64_t coloring, int vertex, int color) {
-    igraph_vector_t neighbors_vec___;
-
-    igraph_vector_init(&neighbors_vec___, degree);
-    igraph_neighbors(&graph, &neighbors_vec___, vertex, IGRAPH_ALL);
+    // igraph_vector_init(neighbors_vec, degree);
+    igraph_neighbors(&graph, neighbors_vec, vertex, IGRAPH_ALL);
 
     bool valid = true;
 
-    for (int j = 0; j < igraph_vector_size(&neighbors_vec___); j++) {
-        int neighbor = VECTOR(neighbors_vec___)[j];
+    for (int j = 0; j < igraph_vector_size(neighbors_vec); j++) {
+        int neighbor = VECTOR(*neighbors_vec)[j];
         if (GET_NTH_COLOR(coloring, neighbor) == color) {
             valid = false;
             break;
         }
     }
-    igraph_vector_destroy(&neighbors_vec___);
+    // igraph_vector_destroy(neighbors_vec);
 
     return valid;
 }

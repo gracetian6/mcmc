@@ -5,7 +5,7 @@
 
 #include <igraph.h>
 
-void clear_vector(std::vector<double> vector);
+void clear_vector(std::vector<double> *vector);
 
 bool check_valid_coloring(igraph_vector_t *neighbors_enum, uint64_t coloring, int vertex, int color);
 

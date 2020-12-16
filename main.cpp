@@ -91,9 +91,6 @@ void find_colorings(uint64_t initial_coloring) {
 // take one "step" on the random walk, or, more precisely, multiply "vector" by the
 // random-walk matrix of the Markov chain and place the result in "new_vector"
 void matrix_vector_mult() {
-    // clear the "new_vector"
-    clear_vector(new_vector);
-
     // iterate through all possible colorings
     for (int i = 0; i < num_colorings; i++) {
         uint64_t x = bitfields[i];
@@ -111,13 +108,12 @@ void matrix_vector_mult() {
 
         for (int v = 0; v < num_vertices; v++) {
             for (int c = 0; c < num_colors; c++) {
-                if (check_valid_coloring(&neighbors_vec, x, v, c)) {
-                    uint64_t y = SET_NTH_COLOR(x,v,c);
+                if (GET_NTH_COLOR(x, v) != c && check_valid_coloring(&neighbors_vec, x, v, c)) {
+                    uint64_t y = SET_NTH_COLOR(x, v, c);
                     new_vector[indices[y]] += (1.0/(num_colors * num_vertices)) * vector[i];
                 } else self_loops++;
             }
         }
-
         igraph_vector_destroy(&neighbors_vec);
 #endif
         // add properly weighted self-loop
@@ -151,6 +147,7 @@ void tv_dist_iterate() {
     for (int t = 0; t < num_steps || num_steps == -1; t++) {
         printf("Running step %d.\n", t);
         
+        clear_vector(&new_vector);
         matrix_vector_mult();
         vector.swap(new_vector);
 
@@ -192,6 +189,7 @@ void nu_2_iterate() {
     for (int t = 0; t < num_steps || num_steps == -1; t++) {
         printf("Running step %d.\n", t);
         
+        clear_vector(&new_vector);
         matrix_vector_mult();
         vector.swap(new_vector);
 
