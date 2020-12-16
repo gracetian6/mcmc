@@ -94,7 +94,7 @@ void matrix_vector_mult() {
     // iterate through all possible colorings
     for (int i = 0; i < num_colorings; i++) {
         uint64_t x = bitfields[i];
-        
+
         int self_loops = 0;
 
 #ifdef MEMOIZE
@@ -146,7 +146,7 @@ void tv_dist_iterate() {
     // main loop to "advance vector by one step"
     for (int t = 0; t < num_steps || num_steps == -1; t++) {
         printf("Running step %d.\n", t);
-        
+
         clear_vector(&new_vector);
         matrix_vector_mult();
         vector.swap(new_vector);
@@ -165,7 +165,7 @@ void tv_dist_iterate() {
 void nu_2_iterate() {
     vector.clear();
     new_vector.clear();
-    
+
     for (int i = 0; i < num_colorings; i++) vector.push_back(-1.0 + (rand() % 2) * 2); // fill with random hypercube
     for (int i = 0; i < num_colorings; i++) new_vector.push_back(0.0);
 
@@ -185,10 +185,11 @@ void nu_2_iterate() {
 
     fprintf(fp, "STEP, NU2-est\n");
 
+    double prev_nu2 = 1;
     // main loop to "advance vector by one step"
     for (int t = 0; t < num_steps || num_steps == -1; t++) {
         printf("Running step %d.\n", t);
-        
+
         clear_vector(&new_vector);
         matrix_vector_mult();
         vector.swap(new_vector);
@@ -203,15 +204,16 @@ void nu_2_iterate() {
         for (int i = 0; i < num_colorings; i++) l2_norm += vector[i]*vector[i];
         l2_norm = sqrt(l2_norm);
 
+        printf("prev: %f, now: %f\n", prev_nu2, 1 - l2_norm);
+        if (t > 1 && prev_nu2 - (1 - l2_norm) <= 0.000001) {
+          break;
+        }
         fprintf(fp, "%d, %f\n", t, 1 - l2_norm);
         printf("%d, %f\n", t, 1 - l2_norm);
+        prev_nu2 = 1 - l2_norm;
 
         // renormalize
         for (int i = 0; i < num_colorings; i++) vector[i] /= l2_norm;
-
-        // if (stopping_threshold != NAN && tv_dist <= stopping_threshold) {
-        //     break;
-        // }
     }
     fclose(fp);
 }
@@ -285,7 +287,7 @@ int main(int argc, char *argv[]) {
     printf("Finished initialization!\n===========\n\n");
 
     tv_dist_iterate();
-    // nu_2_iterate();
+    nu_2_iterate();
 
     igraph_destroy(&graph);
 
