@@ -1,0 +1,140 @@
+---
+title: "R Notebook"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+# Reading the data
+```{r}
+mcmc <- setNames(data.frame(matrix(ncol = 6, nrow = 1)), c("n", "k", "D", "kD", "Stop_Time", "nu2"))
+mcmc
+
+
+read.mcmc <- function(D, K, n, df) {
+    tv.fileName = paste("data/TV-V", toString(n), "K", toString(K), "D", toString(D), ".csv", sep="")
+    nu2.fileName = paste("data/NU2-V", toString(n), "K", toString(K), "D", toString(D), ".csv", sep="")
+    KD <- paste(toString(K), toString(D), sep="/")
+    stop <- nrow(read.csv(tv.fileName, skip = 2))
+    nu2 <- tail(read.csv(nu2.fileName, skip=2), n=1)$NU2.est
+    row <- c(n, K, D, KD, stop, nu2)
+    df <- rbind(df, row) 
+    return(df)
+}
+
+# degree 3
+D = 3
+for (K in 5:5){
+  for (n in seq(4, 10, 2)){
+    mcmc <- read.mcmc(D, K, n, mcmc)
+  }
+}
+
+for (K in 6:7){
+  for (n in seq(4, 8, 2)){
+    mcmc <- read.mcmc(D, K, n, mcmc)
+  }
+}
+
+# degree 4
+D = 4
+for (K in 6:7){
+  for (n in seq(5, 9, 1)){
+    mcmc <- read.mcmc(D, K, n, mcmc)
+  }
+}
+
+# degree 4
+D = 4
+for (K in 6:6){
+  for (n in seq(9, 11, 1)){
+    mcmc <- read.mcmc(D, K, n, mcmc)
+  }
+}
+
+# degree 4
+D = 4
+for (K in 7:7){
+  for (n in seq(9, 9, 1)){ # change to 10
+    mcmc <- read.mcmc(D, K, n, mcmc)
+  }
+}
+
+```
+# Read V12 K5 D3
+```{r}
+D = 3
+n = 12
+K = 5
+
+    tv.fileName = paste("data/TV-V", toString(n), "K", toString(K), "D", toString(D), ".csv", sep="")
+    nu2.fileName = paste("data/NU2-V", toString(n), "K", toString(K), "D", toString(D), ".csv", sep="")
+    KD <- paste(toString(K), toString(D), sep="/")
+    stop <- nrow(read.csv(tv.fileName, skip = 2))
+    row <- c(n, K, D, KD, stop, NA)
+    mcmc <- rbind(mcmc, row) 
+
+```
+
+# Ensure proper types
+```{r}
+mcmc <- mcmc[-1,]
+mcmc$k <- as.integer(mcmc$k)
+mcmc$D <- as.integer(mcmc$D)
+mcmc$n <- as.integer(mcmc$n)
+mcmc$Stop_Time <- as.integer(mcmc$Stop_Time)
+mcmc$nu2 <- as.numeric(mcmc$nu2)
+mcmc
+```
+
+
+```{r}
+library(ggplot2)
+ggplot(mcmc, aes(n, Stop_Time)) + geom_point(aes(colour = kD), size = 3) + geom_line(aes(colour = kD), size = 1.5) + ggtitle("Stop Time over n for k/D curves")
+```
+
+
+```{r}
+ggplot(mcmc, aes(n, log(nu2))) + geom_point(aes(colour = kD), size = 3) + geom_line(aes(colour = kD), size = 1.5) + ggtitle("log(nu) for n and k/D")
+# small nu => mixes more slowly 
+# as size of graph gets bigger, then spectral gap gets smaller 
+```
+```{r}
+# stopping time <= O(log(n / eps)/nu2) 
+# this bound is very loose - much bigger than stopping time
+# using bounds w nu2 not great for proving conjecture
+# ordering is similar to stopping vs n graph
+# nu2 picks one random starting vector, will benefit from more trials
+ggplot(mcmc, aes(log(n/0.01)/nu2, Stop_Time)) + geom_point(aes(colour = kD), size = 3) + geom_line(aes(colour = kD), size = 1.5) + ggtitle("log(n/eps) / nu2 and stopping time")
+```
+
+```{r}
+ggplot(mcmc, aes(log(nu2), Stop_Time)) + geom_point(aes(colour = kD), size = 3) + geom_line(aes(colour = kD), size = 1.5) + ggtitle("Stopping Time and log(nu2)")
+```
+
+```{r}
+# nlogn coefficient
+
+mcmc$nlogn <- mcmc$n * log(mcmc$n)
+
+lm2 <- lm(Stop_Time ~ nlogn + D + k, data=mcmc)
+summary(lm2)
+plot(lm2)
+```
+
+```{r}
+lm1 <- lm(Stop_Time ~ nlogn, data=mcmc)
+summary(lm1)
+
+lm.n <- lm(Stop_Time ~ n, data=mcmc)
+lm.nlogn <- lm(Stop_Time ~ nlogn, data=mcmc)
+
+plot(Stop_Time ~ nlogn, data=mcmc)
+
+anova(lm.n, lm.nlogn)
+```
+```{r}
+lm4 <- lm(Stop_Time ~ (nlogn + D + k)^2, data=mcmc)
+summary(lm4)
+```
+
+
